@@ -1,6 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stock_management/models/category.dart';
+import 'package:stock_management/screens/add_product_screen.dart';
+import 'package:stock_management/screens/home_screen.dart';
 import 'package:stock_management/screens/login_screen.dart';
+import 'package:stock_management/services/firestore_service.dart';
 
 void main() => runApp(MyApp());
 
@@ -10,7 +15,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-
+        StreamProvider<FirebaseUser>(create: (context) => FirebaseAuth.instance.onAuthStateChanged),
       ],
       child: MaterialApp(
         title: 'Flutter Demo',
@@ -20,8 +25,23 @@ class MyApp extends StatelessWidget {
         initialRoute: LoginScreen.routeName,
         routes: <String, WidgetBuilder>{
           LoginScreen.routeName: (context) => LoginScreen(),
+          HomeScreen.routeName: (context) => HomeScreen(),
+          AddProductScreen.routeName: (context) => AddProductScreenRoute()
         },
       ),
     );
   }
+}
+
+class AddProductScreenRoute extends StatelessWidget {
+  final db = FirestoreService();
+  @override
+  Widget build(BuildContext context) {
+    var user = Provider.of<FirebaseUser>(context);
+    return StreamProvider<List<Category>>.value(
+      value: db.getCategories(user),
+      child: AddProductScreen(),
+    );
+  }
+
 }
