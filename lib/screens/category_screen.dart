@@ -13,11 +13,13 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   final db = FirestoreService();
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     var user = Provider.of<FirebaseUser>(context);
     return Scaffold(
+      key: _scaffoldKey,
       appBar: AppBar(
         iconTheme: IconThemeData(
           color: Colors.black87, //change your color here
@@ -28,7 +30,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       ),
       body: StreamProvider<List<Category>>.value(
         value: db.getCategories(user),
-        child: CategoryList(),
+        child: CategoryList(scaffoldKey: _scaffoldKey,),
       ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
@@ -36,7 +38,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
           showDialog(
             context: context,
             builder: (context) => DialogAddCategory(
-              title: "Enter custom category",
+              title: "New category",
+              isCreate: true,
             )
           );
         }
@@ -46,24 +49,62 @@ class _CategoryScreenState extends State<CategoryScreen> {
 }
 
 class CategoryList extends StatelessWidget {
+  final GlobalKey<ScaffoldState> scaffoldKey;
+  CategoryList({this.scaffoldKey});
+  final db = FirestoreService();
   @override
   Widget build(BuildContext context) {
+    var user = Provider.of<FirebaseUser>(context);
     var categories = Provider.of<List<Category>>(context);
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
       child: categories == null 
-        ? Text('Loading...')
+        ? Center(child: Text('Loading...'))
         : categories.length == 0 
-          ? Text('No category')
+          ? Center(child: Text('No category'))
           : ListView.builder(
             itemCount: categories == null ? 0 : categories.length,
             itemBuilder: (context, index) {
-              return Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: ListTile(
-                    title: Text(categories[index].category),
+              Category category = categories[index];
+              return Dismissible(
+                key: Key(category.id),
+                onDismissed: (direction) {
+                  // setState(() {
+                    categories.removeAt(index);
+                    db.deleteCategory(user, category.id).then((a){
+                      Scaffold.of(context)
+                        .showSnackBar(SnackBar(content: Text("${category.category} deleted")));
+                    // });
+                  });
+                },
+                background: Container(
+                  color: Colors.red,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Align(alignment: Alignment.centerRight, child: Icon(Icons.delete, color: Colors.white)),
+                  ),
+                ),
+                child: Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.0)),
+                  child: InkWell(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => DialogAddCategory(
+                          title: "Edit category",
+                          isCreate: false,
+                          id: category.id,
+                          initVal: category.category,
+                          scaffoldKey: scaffoldKey,
+                        )
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: ListTile(
+                        title: Text(category.category),
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -75,10 +116,18 @@ class CategoryList extends StatelessWidget {
 
 class DialogAddCategory extends StatelessWidget {
   final String title;
+  final String initVal;
+  final bool isCreate;
+  final String id;
+  final GlobalKey<ScaffoldState> scaffoldKey;
   final firestoreService = FirestoreService();
 
   DialogAddCategory({
     @required this.title,
+    @required this.isCreate,
+    this.id,
+    this.initVal,
+    this.scaffoldKey
   });
 
   @override
@@ -95,6 +144,7 @@ class DialogAddCategory extends StatelessWidget {
 
   dialogContent(BuildContext context) {
     final categoryController = TextEditingController();
+    categoryController.text = initVal ?? '';
     var user = Provider.of<FirebaseUser>(context);
     return Container(
       padding: EdgeInsets.only(
@@ -170,13 +220,31 @@ class DialogAddCategory extends StatelessWidget {
                   ),
                   onPressed: () {
                     Map data = {
+                      'id': id ?? '',
                       'category': categoryController.text,
                     };
 
-                  firestoreService.createCategory(user, data);
-                    Navigator.of(context).pop(); // To close the dialog
+                  if(isCreate == true) {
+                    firestoreService.createCategory(user, data).then((a) {
+                      scaffoldKey.currentState
+                          .showSnackBar(SnackBar(content: Text("Successfully created")));
+                    }).catchError((error) {
+                      scaffoldKey.currentState
+                          .showSnackBar(SnackBar(content: Text("Error creating")));
+                    });
+                    Navigator.of(context).pop();
+                  }else {
+                    firestoreService.updateCategory(user, data).then((a) {
+                      scaffoldKey.currentState
+                          .showSnackBar(SnackBar(content: Text("Successfully updated")));
+                    }).catchError((error) {
+                      scaffoldKey.currentState
+                          .showSnackBar(SnackBar(content: Text("Error updating")));
+                    });
+                    Navigator.of(context).pop();
+                  }
                   },
-                  child: Text("Add", style: TextStyle(color: Colors.white,)),
+                  child: Text("Save", style: TextStyle(color: Colors.white,)),
                 ),
               ],
             ),

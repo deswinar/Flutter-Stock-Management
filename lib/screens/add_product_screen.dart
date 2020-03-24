@@ -1,11 +1,9 @@
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:stock_management/models/category.dart';
-import 'package:stock_management/models/product.dart';
 import 'package:stock_management/services/firebase_storage_service.dart';
 import 'package:stock_management/services/firestore_service.dart';
 
@@ -80,7 +78,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     // var _categories = categories.map((list) => Category.fromMap(list));
     _categories.clear();
     _categories.add('Uncategorized');
-    for (var val in categories) {
+    for (var val in categories ?? []) {
       _categories.add(val.category);
     }
 
@@ -90,7 +88,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         iconTheme: IconThemeData(
           color: Colors.black87, //change your color here
         ),
-        title: Text('Add Product', style: TextStyle(color: Colors.black87),),
+        title: Text('New Product', style: TextStyle(color: Colors.black87),),
         centerTitle: true,
         backgroundColor: Colors.white,
       ),
@@ -236,8 +234,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
               await firestoreService.createProduct(user, data);
               Navigator.pop(context);
-              Scaffold
-                  .of(context)
+              _scaffoldKey.currentState
                   .showSnackBar(SnackBar(content: Text('Processing Data')));
             }
           }

@@ -9,7 +9,7 @@ final Firestore _db = Firestore.instance;
 String uid;
 String name;
 String email;
-String imageUrl;
+String profileUrl;
 
 Future<String> signInWithGoogle() async {
   try {
@@ -24,6 +24,9 @@ Future<String> signInWithGoogle() async {
 
     final AuthResult authResult = await _auth.signInWithCredential(credential);
     final FirebaseUser user = authResult.user;
+    if (user == null) {
+      throw('Login Canceled');
+    }
     print("user name: ${user.displayName}");
 
     // Checking if email and name is null
@@ -35,7 +38,7 @@ Future<String> signInWithGoogle() async {
     uid = user.uid;
     name = user.displayName;
     email = user.email;
-    imageUrl = user.photoUrl;
+    profileUrl = user.photoUrl;
 
     updateUserData(user);
 
