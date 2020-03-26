@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:stock_management/screens/category_screen.dart';
 import 'package:stock_management/screens/product_screen.dart';
 import 'package:stock_management/screens/profile_screen.dart';
 import 'package:stock_management/screens/setting_screen.dart';
@@ -16,7 +15,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _children = [
     ProductScreen(),
-    CategoryScreen(),
+    ProfileScreen(),
     SettingScreen(),
     ProfileScreen(),
   ];
@@ -35,8 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
             title: new Text('Products'),
           ),
           BottomNavigationBarItem(
-            icon: new Icon(Icons.category),
-            title: new Text('Categories'),
+            icon: new Icon(Icons.equalizer),
+            title: new Text('Graphics'),
           ),
           BottomNavigationBarItem(
             icon: new Icon(Icons.settings),

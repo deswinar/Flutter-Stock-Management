@@ -177,7 +177,7 @@ class _ProductListState extends State<ProductList> {
                                 fit: BoxFit.cover,
                               ),
                           title: Text(product.name),
-                          subtitle: Text('Stock : ' + product.qty),
+                          subtitle: Text('Stock : ${product.qty}'),
                         ),
                       ),
                     ),

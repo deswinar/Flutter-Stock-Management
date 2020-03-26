@@ -4,7 +4,7 @@ class Product {
   String id;
   String name;
   String description;
-  String qty;
+  int qty;
   String category;
   String imageUrl;
   Timestamp lastUpdated;

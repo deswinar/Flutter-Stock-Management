@@ -1,6 +1,9 @@
+import 'dart:collection';
 import 'dart:io';
+import 'package:autocomplete_textfield/autocomplete_textfield.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:stock_management/models/category.dart';
@@ -52,13 +55,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _categoryController = TextEditingController();
   final _qtyController = TextEditingController();
   bool _saveButtonState = true;
 
   String _categoryValue;
-  var _categories = [
-    'Uncategorized',
-  ];
 
   final firebaseStorageService = FirebaseStorageService();
   final firestoreService = FirestoreService();
@@ -70,17 +71,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
     super.initState();
     _categoryValue = 'Uncategorized';
   }
+  GlobalKey key = GlobalKey<AutoCompleteTextFieldState<String>>();
+  String selected;
+  List<String> suggestions = [];
+  String tempSuggestion = '';
   
   @override
   Widget build(BuildContext context) {
     var user = Provider.of<FirebaseUser>(context);
     var categories = Provider.of<List<Category>>(context);
-    // var _categories = categories.map((list) => Category.fromMap(list));
-    _categories.clear();
-    _categories.add('Uncategorized');
-    for (var val in categories ?? []) {
-      _categories.add(val.category);
-    }
 
     return Scaffold(
       key: _scaffoldKey,
@@ -157,39 +156,57 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         },
                         decoration: ProductStyle.textFieldStyle(labelText: 'Quantity', controller: _qtyController)
                       ),
-                      InputDecorator(
-                        decoration: InputDecoration(
-                          errorStyle: TextStyle(color: Colors.redAccent, fontSize: 16.0),
-                          labelText: 'Category',
-                          // border: OutlineInputBorder(borderRadius: BorderRadius.circular(16.0)),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16.0),
-                            borderSide: BorderSide(color: Colors.grey)
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16.0),
-                            borderSide: BorderSide(color: Colors.black87)
-                          )
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _categoryValue,
-                            elevation: 16,
-                            isDense: true,
-                            onChanged: (String newValue) {
-                              setState(() {
-                                _categoryValue = newValue;
-                              });
+                      StreamBuilder<List<Category>>(
+                        stream: firestoreService.getCategorySuggestions(user),
+                        builder: (context, snapshot) {
+                          suggestions.clear();
+                          if(snapshot.hasData) {
+                            snapshot.data.forEach((data) {
+                              if(tempSuggestion.trim().toLowerCase() != data.category.trim().toLowerCase()){
+                                suggestions.add(data.category);
+                              }
+                              tempSuggestion = data.category;
+                            });
+                            print(suggestions);
+                          }
+                          return TypeAheadFormField(
+                            autoFlipDirection: true,
+                            textFieldConfiguration: TextFieldConfiguration(
+                              keyboardType: TextInputType.text,
+                              textCapitalization: TextCapitalization.sentences,
+                              controller: _categoryController,
+                              decoration: ProductStyle.categoryTextFieldStyle(labelText: 'Category', controller: _categoryController)
+                            ),          
+                            suggestionsCallback: (pattern) {
+                              return suggestions.where((data) => data.toLowerCase().contains(pattern.toLowerCase())).toList();
                             },
-                            items: _categories.map((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
+                            itemBuilder: (context, suggestion) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                      bottom: BorderSide(width: 1)
+                                  )
+                              ),
+                                child: ListTile(
+                                  title: Text(suggestion),
+                                ),
                               );
-                            }).toList(),
-                          ),
-                        ),
-                      )
+                            },
+                            transitionBuilder: (context, suggestionsBox, controller) {
+                              return suggestionsBox;
+                            },
+                            onSuggestionSelected: (suggestion) {
+                              _categoryController.text = suggestion;
+                            },
+                            validator: (value) {
+                              if (value.isEmpty) {
+                                return 'Please select a category';
+                              }
+                            },
+                            onSaved: (value) => _categoryValue = value,
+                          );
+                        }
+                      ),
                     ]
                   )
                 ),
@@ -227,7 +244,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               Map data = {
                 'name': _nameController.text ?? '',
                 'description': _descriptionController.text ?? '',
-                'qty': _qtyController.text ?? 0,
+                'qty': int.parse(_qtyController.text) ?? 0,
                 'category': _categoryValue,
                 'imageUrl': _image == null ? null : result.imageUrl,
               };
@@ -253,6 +270,25 @@ class ProductStyle{
       onPressed: () => controller.clear(),
       icon: Icon(Icons.clear),
     ),
+    contentPadding: EdgeInsets.all(12),
+    labelText: labelText,
+    hintText:hintText,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16.0),
+      borderSide: BorderSide(color: Colors.grey)
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16.0),
+      borderSide: BorderSide(color: Colors.grey)
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16.0),
+      borderSide: BorderSide(color: Colors.black87)
+    )
+  );}
+
+  static InputDecoration categoryTextFieldStyle({String labelText="",String hintText="", TextEditingController controller}) {return InputDecoration(
+    suffixIcon: Icon(Icons.search),
     contentPadding: EdgeInsets.all(12),
     labelText: labelText,
     hintText:hintText,

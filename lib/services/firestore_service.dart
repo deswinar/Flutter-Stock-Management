@@ -74,6 +74,7 @@ class FirestoreService {
           'category': data['category'] ?? '',
           'imageUrl': data['imageUrl'] ?? '',
           'lastUpdated': DateTime.now(),
+          'categorySearchList': setSearchParam(data['category'] ?? ''),
         });
   }
 
@@ -99,6 +100,7 @@ class FirestoreService {
         'category': data['category'] ?? '',
         'imageUrl': data['imageUrl'] ?? '',
         'lastUpdated': DateTime.now(),
+        'categorySearchList': setSearchParam(data['category'] ?? ''),
       });
   }
 
@@ -110,33 +112,22 @@ class FirestoreService {
     return ref.map((list) => list.documents.map((doc) => Category.fromFirestore(doc)).toList());
   }
 
-  Future<void> createCategory(FirebaseUser user, Map data) {
-    return _db
-        .collection('products')
-        .document(user.uid)
-        .collection('categories')
-        .add({
-          'category': data['category'] ?? '',
-        });
+  Stream<List<Category>> getCategorySuggestions(FirebaseUser user) {
+    var ref = _db
+      .collection('products')
+      .document(user.uid)
+      .collection('products')
+      .snapshots();
+      return ref.map((list) => list.documents.map((doc) => Category.fromFirestore(doc)).toList());
   }
 
-  Future<void> updateCategory(FirebaseUser user, Map data) {
-    return _db
-        .collection('products')
-        .document(user.uid)
-        .collection('categories')
-        .document(data['id'])
-        .setData({
-          'category': data['category'] ?? '',
-        });
-  }
-
-  Future<void> deleteCategory(FirebaseUser user, String id) {
-    return _db
-        .collection('products')
-        .document(user.uid)
-        .collection('categories')
-        .document(id)
-        .delete();
+  List<String> setSearchParam(String caseText) {
+    List<String> caseSearchList = List();
+    String temp = "";
+    for (int i = 0; i < caseText.length; i++) {
+      temp = temp + caseText[i];
+      caseSearchList.add(temp);
+    }
+    return caseSearchList;
   }
 }

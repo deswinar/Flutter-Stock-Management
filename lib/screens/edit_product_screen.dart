@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:autocomplete_textfield/autocomplete_textfield.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:stock_management/models/category.dart';
@@ -59,13 +61,14 @@ class EditProductScreenState extends State<EditProductScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _qtyController = TextEditingController();
+  final _categoryController = TextEditingController();
   bool _saveButtonState = true;
 
   String _categoryValue;
-  var _categories = [
-    'Uncategorized',
-  ];
-  bool isCategoryChanged = false;
+  GlobalKey key = GlobalKey<AutoCompleteTextFieldState<Category>>();
+  Category selected;
+  String tempSuggestion = '';
+  List<String> suggestions = [];
 
   final firebaseStorageService = FirebaseStorageService();
   final firestoreService = FirestoreService();
@@ -84,6 +87,7 @@ class EditProductScreenState extends State<EditProductScreen> {
     final EditProductScreenArgs args = ModalRoute.of(context).settings.arguments;
     var user = Provider.of<FirebaseUser>(context);
     var categories = Provider.of<List<Category>>(context);
+
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
@@ -105,28 +109,14 @@ class EditProductScreenState extends State<EditProductScreen> {
             builder: (context, snapshot) {
               String name = snapshot.data.name ?? '';
               String description = snapshot.data.description ?? '';
-              String qty = snapshot.data.qty ?? 0;
+              int qty = snapshot.data.qty ?? 0;
               String category = snapshot.data.category ?? null;
               imageUrl = snapshot.data.imageUrl ?? null;
 
               _nameController.text = name;
               _descriptionController.text = description;
-              _qtyController.text = qty;
-
-              _categories.clear();
-              print(category);
-              if(!category.contains('Uncategorized')){
-                _categories.add('Uncategorized');
-              }
-              for (var val in categories) {
-                _categories.add(val.category);
-              }
-              if(!_categories.contains(category)){
-                _categories.add(category);
-              }
-              if(isCategoryChanged == false) {
-              _categoryValue = category;
-              }
+              _qtyController.text = qty.toString();
+              _categoryController.text = category;
 
               return Container(
                 margin: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
@@ -194,40 +184,57 @@ class EditProductScreenState extends State<EditProductScreen> {
                             },
                             decoration: ProductStyle.textFieldStyle(labelText: 'Quantity', controller: _qtyController)
                           ),
-                          InputDecorator(
-                            decoration: InputDecoration(
-                              errorStyle: TextStyle(color: Colors.redAccent, fontSize: 16.0),
-                              labelText: 'Category',
-                              // border: OutlineInputBorder(borderRadius: BorderRadius.circular(16.0)),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16.0),
-                                borderSide: BorderSide(color: Colors.grey)
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16.0),
-                                borderSide: BorderSide(color: Colors.black87)
-                              )
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _categoryValue,
-                                elevation: 16,
-                                isDense: true,
-                                onChanged: (String newValue) {
-                                  setState(() {
-                                    _categoryValue = newValue;
-                                    isCategoryChanged = true;
-                                  });
+                          StreamBuilder<List<Category>>(
+                            stream: firestoreService.getCategorySuggestions(user),
+                            builder: (context, snapshot) {
+                              suggestions.clear();
+                              if(snapshot.hasData) {
+                                snapshot.data.forEach((data) {
+                                  if(tempSuggestion.trim().toLowerCase() != data.category.trim().toLowerCase()){
+                                    suggestions.add(data.category);
+                                  }
+                                  tempSuggestion = data.category;
+                                });
+                                print(suggestions);
+                              }
+                              return TypeAheadFormField(
+                                autoFlipDirection: true,
+                                textFieldConfiguration: TextFieldConfiguration(
+                                  keyboardType: TextInputType.text,
+                                  textCapitalization: TextCapitalization.sentences,
+                                  controller: _categoryController,
+                                  decoration: ProductStyle.categoryTextFieldStyle(labelText: 'Category', controller: _categoryController)
+                                ),          
+                                suggestionsCallback: (pattern) {
+                                  return suggestions.where((data) => data.toLowerCase().contains(pattern.toLowerCase())).toList();
                                 },
-                                items: _categories.map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
+                                itemBuilder: (context, suggestion) {
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                          bottom: BorderSide(width: 1)
+                                      )
+                                  ),
+                                    child: ListTile(
+                                      title: Text(suggestion),
+                                    ),
                                   );
-                                }).toList(),
-                              ),
-                            ),
-                          )
+                                },
+                                transitionBuilder: (context, suggestionsBox, controller) {
+                                  return suggestionsBox;
+                                },
+                                onSuggestionSelected: (suggestion) {
+                                  _categoryController.text = suggestion;
+                                },
+                                validator: (value) {
+                                  if (value.isEmpty) {
+                                    return 'Please select a category';
+                                  }
+                                },
+                                onSaved: (value) => _categoryValue = value,
+                              );
+                            }
+                          ),
                         ]
                       )
                     ),
@@ -264,18 +271,15 @@ class EditProductScreenState extends State<EditProductScreen> {
                 result = await firebaseStorageService.uploadFile(user, _image, 'product_' + DateTime.now().millisecondsSinceEpoch.toString());
               }
 
+              _categoryValue = _categoryController.text;
               Map data = {
                 'id': args.id,
                 'name': _nameController.text ?? '',
                 'description': _descriptionController.text ?? '',
-                'qty': _qtyController.text ?? 0,
+                'qty': int.parse(_qtyController.text) ?? 0,
                 'category': _categoryValue,
                 'imageUrl': _image == null ? imageUrl == null ? null : imageUrl : result.imageUrl,
               };
-
-              if(!_categories.contains(_categoryValue)){
-                await firestoreService.createCategory(user, data);
-              }
 
               await firestoreService.updateProduct(user, data);
               Navigator.pop(context);
@@ -298,6 +302,25 @@ class ProductStyle{
       onPressed: () => controller.clear(),
       icon: Icon(Icons.clear),
     ),
+    contentPadding: EdgeInsets.all(12),
+    labelText: labelText,
+    hintText:hintText,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16.0),
+      borderSide: BorderSide(color: Colors.grey)
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16.0),
+      borderSide: BorderSide(color: Colors.grey)
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16.0),
+      borderSide: BorderSide(color: Colors.black87)
+    )
+  );}
+
+  static InputDecoration categoryTextFieldStyle({String labelText="",String hintText="", TextEditingController controller}) {return InputDecoration(
+    suffixIcon: Icon(Icons.search),
     contentPadding: EdgeInsets.all(12),
     labelText: labelText,
     hintText:hintText,

@@ -54,7 +54,7 @@ class SortProductScreen extends StatelessWidget {
               child: InkWell(
                 onTap: () {
                   Navigator.pop(context, {
-                    'isDescending': true,
+                    'isDescending': false,
                     'sortBy': 'qty',
                   });
                 },
@@ -69,7 +69,7 @@ class SortProductScreen extends StatelessWidget {
               child: InkWell(
                 onTap: () {
                   Navigator.pop(context, {
-                    'isDescending': false,
+                    'isDescending': true,
                     'sortBy': 'qty',
                   });
                 },
