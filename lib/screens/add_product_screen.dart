@@ -1,6 +1,5 @@
 import 'dart:collection';
 import 'dart:io';
-import 'package:autocomplete_textfield/autocomplete_textfield.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
@@ -71,7 +70,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
     super.initState();
     _categoryValue = 'Uncategorized';
   }
-  GlobalKey key = GlobalKey<AutoCompleteTextFieldState<String>>();
   String selected;
   List<String> suggestions = [];
   String tempSuggestion = '';
@@ -245,7 +243,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 'name': _nameController.text ?? '',
                 'description': _descriptionController.text ?? '',
                 'qty': int.parse(_qtyController.text) ?? 0,
-                'category': _categoryValue,
+                'category': _categoryController.text ?? '',
                 'imageUrl': _image == null ? null : result.imageUrl,
               };
 

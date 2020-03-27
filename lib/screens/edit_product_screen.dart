@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:autocomplete_textfield/autocomplete_textfield.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -65,7 +64,6 @@ class EditProductScreenState extends State<EditProductScreen> {
   bool _saveButtonState = true;
 
   String _categoryValue;
-  GlobalKey key = GlobalKey<AutoCompleteTextFieldState<Category>>();
   Category selected;
   String tempSuggestion = '';
   List<String> suggestions = [];

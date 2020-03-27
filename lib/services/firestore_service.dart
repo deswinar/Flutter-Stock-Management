@@ -10,52 +10,63 @@ class FirestoreService {
 
   // Product
 
-  Stream<List<Product>> getProducts(FirebaseUser user, {sort = null}) {
+  Stream<List<Product>> getProducts(FirebaseUser user, {sort = null, search = ""}) {
+    var first = _db
+        .collection('products')
+        .where('userId', isEqualTo: user.uid)
+        .orderBy(sort == null ? 'lastUpdated' : sort['sortBy'], descending: sort == null ? true : sort['isDescending'])
+        .limit(10);
+
+    var res = search == ""
+      ? first.snapshots()
+      : first.where('nameSearchList', arrayContains: search.toLowerCase()).snapshots();
+
+    return res.map((list) => list.documents.map((doc) => Product.fromFirestore(doc)).toList());
+  }
+
+  Stream<List<Product>> getMoreProducts(FirebaseUser user, lastData, {sort = null, search = ""}) {
+    var next = _db
+          .collection('products')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy(sort == null ? 'lastUpdated' : sort['sortBy'], descending: sort == null ? true : sort['isDescending'])
+          .limit(10)
+          .startAfter(lastData);
+
+    var res = search == ""
+      ? next.snapshots()
+      : next.where('nameSearchList', arrayContains: search.toLowerCase()).snapshots();
+
+    return res.map((list) => list.documents.map((doc) => Product.fromFirestore(doc)).toList());
+  }
+
+  Future<List<Product>> getProductsFuture(FirebaseUser user, {sort = null}) async {
     var first = sort == null
-      ? _db
+      ? await _db
           .collection('products')
-          .document(user.uid)
-          .collection('products')
+          .where('userId', isEqualTo: user.uid)
           .orderBy('lastUpdated', descending: true)
           .limit(10)
-          .snapshots()
-      : _db
+          .getDocuments()
+      : await _db
           .collection('products')
-          .document(user.uid)
-          .collection('products')
+          .where('userId', isEqualTo: user.uid)
           .orderBy(sort['sortBy'], descending: sort['isDescending'])
           .limit(10)
-          .snapshots();
+          .getDocuments();
 
-    return first.map((list) => list.documents.map((doc) => Product.fromFirestore(doc)).toList());
+      return first.documents.map((doc) => Product.fromMap(doc.data)).toList();
   }
 
-  Stream<List<Product>> getMoreProducts(FirebaseUser user, lastData, {sort = null}) {
-    var next = sort == null
-      ? _db
-          .collection('products')
-          .document(user.uid)
-          .collection('products')
-          .orderBy('lastUpdated', descending: true)
-          .limit(10)
-          .startAfter(lastData)
-          .snapshots()
-      : _db
-          .collection('products')
-          .document(user.uid)
-          .collection('products')
-          .orderBy(sort['sortBy'], descending: sort['isDescending'])
-          .limit(10)
-          .startAfter(lastData)
-          .snapshots();
-
-    return next.map((list) => list.documents.map((doc) => Product.fromFirestore(doc)).toList());
-  }
+  // Future<List<Product>> fetchProducts(FirebaseUser user, {sort = null}) async {
+  //   var result = await getProductsCollection(user, sort: sort);
+  //   var products = result.documents
+  //       .map((doc) => Product.fromMap(doc.data))
+  //       .toList();
+  //   return products;
+  // }
 
   Stream<Product> getProduct(FirebaseUser user, String id) {
     return _db
-        .collection('products')
-        .document(user.uid)
         .collection('products')
         .document(id)
         .snapshots()
@@ -65,9 +76,8 @@ class FirestoreService {
   Future<void> createProduct(FirebaseUser user, Map data) {
     return _db
         .collection('products')
-        .document(user.uid)
-        .collection('products')
         .add({
+          'userId': user.uid,
           'name': data['name'] ?? '',
           'description': data['description'] ?? '',
           'qty': data['qty'] ?? '',
@@ -75,13 +85,12 @@ class FirestoreService {
           'imageUrl': data['imageUrl'] ?? '',
           'lastUpdated': DateTime.now(),
           'categorySearchList': setSearchParam(data['category'] ?? ''),
+          'nameSearchList': setSearchParam(data['name'] ?? ''),
         });
   }
 
   Future<void> deleteProduct(FirebaseUser user, String id) {
     return _db
-        .collection('products')
-        .document(user.uid)
         .collection('products')
         .document(id)
         .delete();
@@ -89,8 +98,6 @@ class FirestoreService {
 
   Future<void> updateProduct(FirebaseUser user, Map data) {
     return _db
-      .collection('products')
-      .document(user.uid)
       .collection('products')
       .document(data['id'])
       .updateData({
@@ -101,6 +108,7 @@ class FirestoreService {
         'imageUrl': data['imageUrl'] ?? '',
         'lastUpdated': DateTime.now(),
         'categorySearchList': setSearchParam(data['category'] ?? ''),
+        'nameSearchList': setSearchParam(data['name'] ?? ''),
       });
   }
 
@@ -115,19 +123,22 @@ class FirestoreService {
   Stream<List<Category>> getCategorySuggestions(FirebaseUser user) {
     var ref = _db
       .collection('products')
-      .document(user.uid)
-      .collection('products')
+      .where('userId', isEqualTo: user.uid)
       .snapshots();
       return ref.map((list) => list.documents.map((doc) => Category.fromFirestore(doc)).toList());
   }
 
   List<String> setSearchParam(String caseText) {
     List<String> caseSearchList = List();
+    var splitCaseText = caseText.split(" ");
     String temp = "";
-    for (int i = 0; i < caseText.length; i++) {
-      temp = temp + caseText[i];
-      caseSearchList.add(temp);
-    }
+    splitCaseText.forEach((text) {
+      for (int i = 0; i < text.length; i++) {
+        temp = temp + text[i].toLowerCase();
+        caseSearchList.add(temp);
+      }
+      temp = "";
+    });
     return caseSearchList;
   }
 }

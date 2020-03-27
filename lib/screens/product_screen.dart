@@ -13,8 +13,46 @@ import 'package:stock_management/services/firestore_service.dart';
 
 var result;
 
-class ProductScreen extends StatelessWidget {
+class ProductScreen extends StatefulWidget {
+  @override
+  _ProductScreenState createState() => _ProductScreenState();
+}
+
+class _ProductScreenState extends State<ProductScreen> {
   final db = FirestoreService();
+
+  Widget _appBarTitle = Text('Products', style: TextStyle(color: Colors.black87),);
+  String _searchText = "";
+  Icon _searchIcon = new Icon(Icons.search);
+  TextEditingController _searchController = TextEditingController();
+
+  void _searchPressed() {
+    setState(() {
+      if (this._searchIcon.icon == Icons.search) {
+        this._searchIcon = Icon(Icons.close);
+        this._appBarTitle = TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search...'
+          ),
+          onChanged: (text) {
+            setState(() {
+              _searchText = text;
+            });
+          },
+        );
+      } else {
+        this._searchIcon = Icon(Icons.search);
+        this._appBarTitle = Text('Products', style: TextStyle(color: Colors.black87),);
+        _searchController.clear();
+        setState(() {
+          _searchText = "";
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     var user = Provider.of<FirebaseUser>(context);
@@ -23,12 +61,20 @@ class ProductScreen extends StatelessWidget {
         iconTheme: IconThemeData(
           color: Colors.black87, //change your color here
         ),
-        title: Text('Products', style: TextStyle(color: Colors.black87),),
+        title: _appBarTitle,
+        actions: <Widget>[
+          IconButton(
+            icon: _searchIcon,
+            onPressed: () {
+              _searchPressed();
+            }
+          )
+        ],
         centerTitle: true,
         backgroundColor: Colors.white,
       ),
       body: StreamProvider<List<Product>>.value(
-        value: user == null ? null : db.getProducts(user, sort: result),
+        value: user == null ? null : db.getProducts(user, sort: result, search: _searchText),
         child: ProductList(),
       ),
       floatingActionButton: Column(
@@ -167,7 +213,7 @@ class _ProductListState extends State<ProductList> {
                         padding: const EdgeInsets.symmetric(vertical: 4.0),
                         child: ListTile(
                           leading: product.imageUrl == null ||  product.imageUrl == ''
-                              ? Image.asset('assets/images/no_product_image.png', fit: BoxFit.cover, width: 50,)
+                              ? Image.asset('assets/images/no_product_image.png', fit: BoxFit.cover, width: 50, alignment: Alignment.center,)
                               // : Image.network(product.imageUrl, fit: BoxFit.fill,),
                               : CachedNetworkImage(
                                 width: 50,
@@ -175,9 +221,18 @@ class _ProductListState extends State<ProductList> {
                                 placeholder: (context, url) => CircularProgressIndicator(),
                                 errorWidget: (context, url, error) => Icon(Icons.error),
                                 fit: BoxFit.cover,
+                                alignment: Alignment.center,
                               ),
                           title: Text(product.name),
-                          subtitle: Text('Stock : ${product.qty}'),
+                          subtitle: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text('Category : ${product.category}'),
+                              Text('Stock : ${product.qty}'),
+                              Text('Last updated : ' + product.lastUpdated.toDate().toString().split(' ')[0] ?? ''),
+                            ],
+                          ),
                         ),
                       ),
                     ),
