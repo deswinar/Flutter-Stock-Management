@@ -1,4 +1,4 @@
-# stock_management
+# Flutter Stock Management
 
 Application for stock management
 
